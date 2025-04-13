@@ -11,7 +11,7 @@ pool:
 
 steps:
   # ✅ Checkout source code
-  - task: Checkout@1
+  - checkout: self
     displayName: 'Checkout source'
 
   # ✅ Install .NET SDK
