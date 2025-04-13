@@ -14,12 +14,12 @@ steps:
   - checkout: self
     displayName: 'Checkout source'
 
-  # ✅ Install .NET SDK
+  # ✅ Install .NET 8 SDK
   - task: UseDotNet@2
-    displayName: 'Install .NET SDK'
+    displayName: 'Install .NET 8 SDK'
     inputs:
       packageType: 'sdk'
-      version: '7.x'
+      version: '8.0.x'
       installationPath: $(Agent.ToolsDirectory)/dotnet
 
   # ✅ Restore project dependencies
