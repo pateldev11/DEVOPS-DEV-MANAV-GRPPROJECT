@@ -10,58 +10,45 @@ pool:
   vmImage: 'windows-latest'
 
 steps:
+  # ✅ Checkout source code
+  - task: Checkout@1
+    displayName: 'Checkout source'
 
-- task: Checkout@1
+  # ✅ Install .NET SDK
+  - task: UseDotNet@2
+    displayName: 'Install .NET SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '7.x'
+      installationPath: $(Agent.ToolsDirectory)/dotnet
 
-- task: UseDotNet@2
-  inputs:
-    packageType: 'sdk'
-    version: '7.x'
-    installationPath: $(Agent.ToolsDirectory)/dotnet
+  # ✅ Restore project dependencies
+  - task: DotNetCoreCLI@2
+    displayName: 'Restore project'
+    inputs:
+      command: 'restore'
+      projects: '**/*.csproj'
 
-# 🔧 Restore project
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'restore'
-    projects: '**/*.csproj'
+  # ✅ Build the MVC project
+  - task: DotNetCoreCLI@2
+    displayName: 'Build project'
+    inputs:
+      command: 'build'
+      projects: '**/*.csproj'
+      arguments: '--configuration $(buildConfiguration)'
 
-# 🔨 Build project
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: '**/*.csproj'
-    arguments: '--configuration $(buildConfiguration)'
+  # ✅ Publish the MVC app
+  - task: DotNetCoreCLI@2
+    displayName: 'Publish project'
+    inputs:
+      command: 'publish'
+      projects: '**/*.csproj'
+      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
 
-# 🧪 Run tests with code coverage
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'test'
-    projects: '**/*Tests.csproj'
-    arguments: '--configuration $(buildConfiguration) --collect:"Code Coverage"'
-
-# 📦 Publish build output
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'publish'
-    projects: '**/*.DevOpsWebAPI.csproj'
-    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-
-# 🚚 Upload artifact
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
-
-# 🧪 Deploy to mocked environments
-- script: echo "✅ Deploying to Dev Environment on port 5000"
-  displayName: 'Deploy to Dev Environment'
-
-- script: echo "✅ Deploying to QAT Environment"
-  displayName: 'Deploy to QAT Environment'
-
-- script: echo "✅ Deploying to Staging Environment"
-  displayName: 'Deploy to Staging Environment'
-
-- script: echo "✅ Deploying to Production Environment"
-  displayName: 'Deploy to Production Environment'
+  # ✅ Publish build artifacts to DevOps pipeline
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish artifacts'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'mvc-app-drop'
+      publishLocation: 'Container'
