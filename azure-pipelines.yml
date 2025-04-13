@@ -10,89 +10,148 @@ pool:
   vmImage: 'windows-latest'
 
 stages:
-# -----------------------------------
-# Stage 1: Build, Test, SonarQube CI
-# -----------------------------------
-- stage: BuildAndAnalyze
-  displayName: 'Build, Test, and Analyze'
-  jobs:
-    - job: Build
-      displayName: 'Build and SonarQube Analysis'
-      steps:
-        - checkout: self
-          displayName: 'Checkout source'
+  # -------------------------
+  # Stage 1: Build and Test
+  # -------------------------
+  - stage: BuildAndTest
+    displayName: 'Build and Test Stage'
+    jobs:
+      - job: Build
+        displayName: 'Build MVC App'
+        steps:
+          - checkout: self
+            displayName: 'Checkout source'
 
-        # ✅ Install .NET 8 SDK
-        - task: UseDotNet@2
-          displayName: 'Install .NET 8 SDK'
-          inputs:
-            packageType: 'sdk'
-            version: '8.0.x'
-            installationPath: $(Agent.ToolsDirectory)/dotnet
+          - task: UseDotNet@2
+            displayName: 'Install .NET 8 SDK'
+            inputs:
+              packageType: 'sdk'
+              version: '8.0.x'
+              installationPath: $(Agent.ToolsDirectory)/dotnet
 
-        # ✅ Prepare SonarQube Analysis
-        - task: SonarQubePrepare@5
-          displayName: 'Prepare SonarQube Analysis'
-          inputs:
-            SonarQube: 'SonarQubeServiceConnection'  # Replace with your service connection name
-            scannerMode: 'CLI'
-            configMode: 'manual'
-            cliProjectKey: 'dpat1072_DEVOPS-FINAL-GRP-PROJECT'
-            cliProjectName: 'DEVOPS-FINAL-GRP-PROJECT'
-            extraProperties: |
-              sonar.cs.opencover.reportsPaths=$(Build.SourcesDirectory)/**/coverage.opencover.xml
-              sonar.exclusions=**/wwwroot/**
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore project'
+            inputs:
+              command: 'restore'
+              projects: '**/*.csproj'
 
-        # ✅ Restore project dependencies
-        - task: DotNetCoreCLI@2
-          displayName: 'Restore project'
-          inputs:
-            command: 'restore'
-            projects: '**/*.csproj'
+          - task: DotNetCoreCLI@2
+            displayName: 'Build project'
+            inputs:
+              command: 'build'
+              projects: '**/*.csproj'
+              arguments: '--configuration $(buildConfiguration)'
 
-        # ✅ Build the MVC app
-        - task: DotNetCoreCLI@2
-          displayName: 'Build project'
-          inputs:
-            command: 'build'
-            projects: '**/*.csproj'
-            arguments: '--configuration $(buildConfiguration)'
+          - task: DotNetCoreCLI@2
+            displayName: 'Run tests'
+            inputs:
+              command: 'test'
+              projects: '**/*Tests.csproj'
+              arguments: '--configuration $(buildConfiguration) --collect:"Code Coverage"'
+              publishTestResults: true
 
-        # ✅ Run tests and collect code coverage
-        - task: DotNetCoreCLI@2
-          displayName: 'Run tests with coverage'
-          inputs:
-            command: 'test'
-            projects: '**/*Tests.csproj'
-            arguments: '--collect:"XPlat Code Coverage"'
-            publishTestResults: true
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish project'
+            inputs:
+              command: 'publish'
+              projects: '**/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
 
-        # ✅ Run SonarQube Analysis
-        - task: SonarQubeAnalyze@5
-          displayName: 'Run SonarQube Analysis'
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Artifacts'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'mvc-app-drop'
+              publishLocation: 'Container'
 
-        # ✅ Publish SonarQube Results
-        - task: SonarQubePublish@5
-          displayName: 'Publish SonarQube Report'
-          inputs:
-            pollingTimeoutSec: '300'
+  # -------------------------
+  # Stage 2: Deploy to Dev
+  # -------------------------
+  - stage: DeployDev
+    displayName: 'Deploy to Development'
+    dependsOn: BuildAndTest
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToDev
+        displayName: 'Deploy MVC App to Dev'
+        environment: 'dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: mvc-app-drop
 
-        # ✅ Publish app artifact
-        - task: DotNetCoreCLI@2
-          displayName: 'Publish project'
-          inputs:
-            command: 'publish'
-            projects: '**/*.csproj'
-            arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+                - task: CopyFiles@2
+                  displayName: 'Copy files to dev environment'
+                  inputs:
+                    SourceFolder: '$(Pipeline.Workspace)/mvc-app-drop'
+                    Contents: '**'
+                    TargetFolder: '$(System.DefaultWorkingDirectory)/dev-deploy'
 
-        - task: PublishBuildArtifacts@1
-          displayName: 'Publish Artifacts'
-          inputs:
-            PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-            ArtifactName: 'mvc-app-drop'
-            publishLocation: 'Container'
+                # Mock deployment step
+                - script: echo "🚀 Deployed to Development Environment on port 5000"
+                  displayName: 'Mock Dev Deployment'
 
-# ---------------------
-# Stage 2–5: CD Stages
-# ---------------------
-# (Use same stages from previous YAML: DeployDev, DeployQAT, DeployStaging, DeployProduction)
+  # -------------------------
+  # Stage 3: Deploy to QA
+  # -------------------------
+  - stage: DeployQAT
+    displayName: 'Deploy to QA'
+    dependsOn: DeployDev
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToQAT
+        displayName: 'Deploy MVC App to QA'
+        environment: 'qa'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: mvc-app-drop
+
+                - script: echo "🚀 Deployed to QA Environment (Mock) on port 5001"
+                  displayName: 'Mock QA Deployment'
+
+  # -------------------------
+  # Stage 4: Deploy to Staging
+  # -------------------------
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging'
+    dependsOn: DeployQAT
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToStaging
+        displayName: 'Deploy MVC App to Staging'
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: mvc-app-drop
+
+                - script: echo "🚀 Deployed to Staging Environment (Mock) on port 5002"
+                  displayName: 'Mock Staging Deployment'
+
+  # -------------------------
+  # Stage 5: Deploy to Production
+  # -------------------------
+  - stage: DeployProduction
+    displayName: 'Deploy to Production'
+    dependsOn: DeployStaging
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToProduction
+        displayName: 'Deploy MVC App to Production'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: mvc-app-drop
+
+                - script: echo "🚀 Deployed to Production Environment (Mock) on port 5003"
+                  displayName: 'Mock Production Deployment'
