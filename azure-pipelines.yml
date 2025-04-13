@@ -43,7 +43,7 @@ steps:
 - task: DotNetCoreCLI@2
   inputs:
     command: 'publish'
-    projects: '**/*.csproj'
+    projects: '**/*.DevOpsWebAPI.csproj'
     arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
 
 # 🚚 Upload artifact
