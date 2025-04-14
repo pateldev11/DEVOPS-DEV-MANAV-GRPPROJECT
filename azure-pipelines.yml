@@ -111,7 +111,7 @@ stages:
                 - download: current
                   artifact: mvc-app-drop
 
-                - script: echo "🚀 Deployed to QA Environment (Mock) on port 5001"
+                - script: echo "🚀 Deployed to QA Environment on port 5001"
                   displayName: 'Mock QA Deployment'
 
   # -------------------------
@@ -132,7 +132,7 @@ stages:
                 - download: current
                   artifact: mvc-app-drop
 
-                - script: echo "🚀 Deployed to Staging Environment (Mock) on port 5002"
+                - script: echo "🚀 Deployed to Staging Environment  on port 5002"
                   displayName: 'Mock Staging Deployment'
 
   # -------------------------
@@ -153,5 +153,5 @@ stages:
                 - download: current
                   artifact: mvc-app-drop
 
-                - script: echo "🚀 Deployed to Production Environment (Mock) on port 5003"
+                - script: echo "🚀 Deployed to Production Environment  on port 5003"
                   displayName: 'Mock Production Deployment'
